@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SONIC Sips Menu Loops</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b3c8c; color: #fff;
+         font: 16px/1.5 system-ui, -apple-system, Segoe UI, sans-serif; }
+  main { max-width: 560px; padding: 32px; }
+  h1 { font-size: 28px; margin: 0 0 8px; }
+  p { opacity: .85; margin: 0 0 24px; }
+  .row { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; margin-bottom: 24px; }
+  a.btn { display: block; padding: 28px 16px; border-radius: 10px; background: #fff; color: #0b3c8c; text-decoration: none;
+          text-align: center; font-weight: 700; font-size: 20px; }
+  a.btn span { display: block; font-weight: 400; font-size: 13px; opacity: .7; margin-top: 4px; }
+  ol { padding-left: 20px; margin: 0; opacity: .9; font-size: 14px; }
+  li { margin-bottom: 6px; }
+  kbd { background: rgba(255,255,255,.15); padding: 1px 6px; border-radius: 4px; font-family: ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<main>
+  <h1>SONIC Sips Menu Loops</h1>
+  <p>Open one page per TV. Each page plays its loop continuously with no black frame between repeats.</p>
+  <div class="row">
+    <a class="btn" href="screen1.html">Screen 1<span>2 min 5 sec loop</span></a>
+    <a class="btn" href="screen2.html">Screen 2<span>1 min 36 sec loop</span></a>
+  </div>
+  <ol>
+    <li>Open Screen 1 in a Chrome window and drag it onto the first TV.</li>
+    <li>Open Screen 2 in a second Chrome window and drag it onto the second TV.</li>
+    <li>Click inside each window once. It goes fullscreen and starts playing.</li>
+    <li><kbd>F</kbd> toggles fullscreen, <kbd>R</kbd> restarts, <kbd>D</kbd> shows a debug readout, <kbd>Esc</kbd> exits fullscreen.</li>
+    <li>Turn off sleep and screensaver on the PC so the loops keep running.</li>
+  </ol>
+</main>
+</body>
+</html>

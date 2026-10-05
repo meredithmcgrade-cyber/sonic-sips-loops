@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SONIC Sips Menu · Screen 1</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #fff; overflow: hidden; }
+  body { cursor: none; }
+  body.idle-cursor { cursor: default; }
+  .stage { position: fixed; inset: 0; background: #fff; }
+  video {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: contain; background: #fff;
+    opacity: 0; pointer-events: none;
+  }
+  video.live { opacity: 1; }
+  #start {
+    position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: #0b3c8c; color: #fff; font: 600 28px/1.3 system-ui, -apple-system, Segoe UI, sans-serif;
+    text-align: center; cursor: pointer; padding: 40px;
+  }
+  #start.show { display: flex; }
+  #start small { display: block; margin-top: 16px; font-weight: 400; font-size: 18px; opacity: .8; }
+  #hud {
+    position: fixed; right: 16px; bottom: 16px; padding: 8px 12px; border-radius: 6px;
+    background: rgba(0,0,0,.6); color: #fff; font: 13px/1.4 ui-monospace, monospace;
+    display: none; white-space: pre;
+  }
+  #hud.show { display: block; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <video id="a" muted playsinline preload="auto" src="video/screen1.mp4"></video>
+  <video id="b" muted playsinline preload="auto" src="video/screen1.mp4"></video>
+</div>
+<div id="start">Click anywhere to start Screen 1<small>Then press F for fullscreen · D for debug readout</small></div>
+<div id="hud"></div>
+<script>
+(function () {
+  // Seamless loop via two alternating video elements.
+  // While one plays, the other is parked at frame 0 and already decoded.
+  // A few frames before the end we start the standby, and on its first
+  // painted frame we swap visibility. No decoder teardown, no black frame.
+  var vids = [document.getElementById('a'), document.getElementById('b')];
+  var cur = 0, swapping = false, loops = 0, lastT = -1, stallTicks = 0;
+  var LEAD = 0.12; // seconds before end to start the standby
+  var hud = document.getElementById('hud');
+  var startOverlay = document.getElementById('start');
+
+  function live() { return vids[cur]; }
+  function standby() { return vids[1 - cur]; }
+
+  function prime(v) {
+    try { v.pause(); } catch (e) {}
+    if (v.readyState >= 1) v.currentTime = 0;
+    else v.addEventListener('loadedmetadata', function () { v.currentTime = 0; }, { once: true });
+  }
+
+  function swapIn(next) {
+    next.classList.add('live');
+    var prev = live();
+    cur = 1 - cur;
+    prev.classList.remove('live');
+    prime(prev);
+    loops++;
+    swapping = false;
+  }
+
+  function startStandby() {
+    if (swapping) return;
+    swapping = true;
+    var next = standby();
+    var p = next.play();
+    if (p && p.catch) p.catch(function () { swapping = false; });
+    if ('requestVideoFrameCallback' in next) {
+      next.requestVideoFrameCallback(function () { swapIn(next); });
+    } else {
+      next.addEventListener('playing', function () { requestAnimationFrame(function () { swapIn(next); }); }, { once: true });
+    }
+  }
+
+  function watch(v) {
+    if (!('requestVideoFrameCallback' in v)) return;
+    v.requestVideoFrameCallback(function tick(now, meta) {
+      if (v === live() && v.duration && meta.mediaTime >= v.duration - LEAD) startStandby();
+      v.requestVideoFrameCallback(tick);
+    });
+  }
+  vids.forEach(watch);
+
+  // Fallbacks if a frame callback never fires near the end.
+  vids.forEach(function (v) {
+    v.addEventListener('timeupdate', function () {
+      if (v === live() && v.duration && v.currentTime >= v.duration - LEAD) startStandby();
+    });
+    v.addEventListener('ended', function () {
+      if (v === live()) { startStandby(); }
+    });
+    v.addEventListener('error', function () { setTimeout(function () { location.reload(); }, 2000); });
+  });
+
+  function begin() {
+    startOverlay.classList.remove('show');
+    prime(standby());
+    var v = live();
+    v.classList.add('live');
+    var p = v.play();
+    if (p && p.catch) p.catch(function () { startOverlay.classList.add('show'); });
+  }
+
+  // Autoplay. If the browser blocks it, show a one click start screen.
+  vids[0].addEventListener('canplay', begin, { once: true });
+  startOverlay.addEventListener('click', function () { begin(); goFullscreen(); });
+
+  // Fullscreen on click or F. Esc leaves it as usual.
+  function goFullscreen() {
+    var el = document.documentElement;
+    if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(function () {});
+  }
+  document.addEventListener('click', goFullscreen);
+  document.addEventListener('keydown', function (e) {
+    var k = e.key.toLowerCase();
+    if (k === 'f') { document.fullscreenElement ? document.exitFullscreen() : goFullscreen(); }
+    if (k === 'd') { hud.classList.toggle('show'); }
+    if (k === 'r') { location.reload(); }
+  });
+
+  // Keep the display awake where the browser supports it.
+  var lock = null;
+  function wake() {
+    if (!('wakeLock' in navigator)) return;
+    navigator.wakeLock.request('screen').then(function (l) { lock = l; }).catch(function () {});
+  }
+  wake();
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') { wake(); var v = live(); if (v.paused) v.play().catch(function(){}); }
+  });
+
+  // Watchdog. If playback freezes for ten seconds, reload the page.
+  setInterval(function () {
+    var v = live();
+    if (!v.paused && v.currentTime === lastT) stallTicks++; else stallTicks = 0;
+    lastT = v.currentTime;
+    if (stallTicks >= 10) location.reload();
+    if (hud.classList.contains('show')) {
+      hud.textContent = 'screen 1\nloops: ' + loops + '\nlive: ' + (cur ? 'B' : 'A') +
+        '\nt: ' + v.currentTime.toFixed(2) + ' / ' + (v.duration || 0).toFixed(2) +
+        '\nready: ' + v.readyState + ' standby ready: ' + standby().readyState +
+        '\nfullscreen: ' + !!document.fullscreenElement + '\nwake lock: ' + !!lock;
+    }
+  }, 1000);
+
+  // Hide the mouse cursor unless it moved recently.
+  var cursorTimer;
+  document.addEventListener('mousemove', function () {
+    document.body.classList.add('idle-cursor');
+    clearTimeout(cursorTimer);
+    cursorTimer = setTimeout(function () { document.body.classList.remove('idle-cursor'); }, 2000);
+  });
+})();
+</script>
+</body>
+</html>
